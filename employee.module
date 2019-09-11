@@ -1,0 +1,208 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function employee_menu(){
+	$items['admin/config/system/employees-import'] = array( // this is an example of configuration link
+		'title' => t('Employee Import') , 
+		'description' => t('This form upload the file that whill be imported by cron process') , 
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('employee_import_form'),
+    'access arguments' => array('administer permissions'),
+	); 
+
+	$items['delete'] = array(
+    'title' => t('Import progress'),
+    'page callback' => 'import_delete',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+	);
+	return $items ; 	
+}
+
+/**
+ * Implements hook_cron().
+ */
+function employee_cron(){
+	watchdog("cron:_import_employees","START");
+	_import_employees();
+	watchdog("cron:_import_employees","END");
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function employee_views_api() {
+  list($module, $api) = func_get_args();
+  if ($module == "views" && $api == "views_default") {
+    return array("version" => "3.0");
+  }
+}
+
+/**
+ * Implements hook_views_default_views().
+ */
+function employee_views_default_views() {
+
+	
+	$views = array();
+  $files = file_scan_directory(drupal_get_path('module', 'employee') . '/views', '/.*\.inc$/');
+
+  // Add view to list of views
+  foreach ($files as $filepath => $file) {
+    require $filepath;
+    if (isset($view)) {
+      $views[$view -> name] = $view;
+    }
+  }
+
+  return $views;
+  
+}
+
+
+/**
+ * This method is the call back to page /delete and it starts the employee nodes deletion
+ */
+function import_delete(){
+	_delete_all_employees();
+}
+
+/**
+ * This method is the call back to admin page admin/config/system/employees-import and save the API url
+ */
+function employee_import_form($form, &$form_state){
+
+	$form["#suffix"] = "<div id='import-form>";
+	$form["#prefix"] = "</div>";
+
+	$form['import_url'] = array(
+		'#type' => 'textfield',
+		'#title' => 'URL',
+		'#description' => 'URL que contiene la fuente de datos de los empleados en formato JSON',
+		'#default_value' => variable_get("import_url"),
+	);
+
+
+	
+	return system_settings_form($form);
+}
+
+/**
+ * This method imports employees from API URL
+ */
+function _import_employees(){
+	$url = variable_get("import_url");
+	if($url != ""){
+		$request = drupal_http_request($url);
+
+		if(!isset($request -> error)){
+			$json_response = drupal_json_decode($request->data);
+					
+			foreach ($json_response as $response_data) {
+
+				$employee_id = $response_data['id'];
+				$employee_data = _search_employee($employee_id);
+				if(count($employee_data)>0){
+					$nid = $employee_data['node'][1] -> nid;
+					_update_employee($nid, $response_data);
+
+				}
+				else{
+					_add_employee($response_data);
+				}
+
+			}			
+		}
+	}
+}
+
+/**
+ * This method search a employee with employee_id equals to parametter $id
+ */
+function _search_employee($id){
+
+	$query = new EntityFieldQuery();
+
+	$query->entityCondition('entity_type', 'node')
+	->entityCondition('bundle', 'empleados')
+	->propertyCondition('status', 1)
+	->fieldCondition('employee_id', 'value', $id, '=');
+
+	$result = $query->execute();
+	watchdog("search::employee", print_r($result,true));
+	return $result;
+}
+
+/**
+ * This method add a node employee with the information received in the parameter $employee
+ */
+function _add_employee($employee){
+	$node = new stdClass();
+	$node->type = 'empleados';
+	$node-> title = $employee['employee_name'] != ""?$employee['employee_name']:"[No registrado]";
+	$node->employee_name[LANGUAGE_NONE][0]['value'] = $employee['employee_name'] != ""?$employee['employee_name']:"[No registrado]";
+	$node->employee_id[LANGUAGE_NONE][0]['value'] = $employee['id'];
+	$node->employee_age[LANGUAGE_NONE][0]['value'] = $employee['employee_age'];
+
+	$tid = _get_salaty_type($employee['employee_salary']);
+	$node->employee_salary_type[LANGUAGE_NONE][0]['tid'] = $tid;
+	node_save($node);
+
+}
+
+/**
+ * This method updates a node employee with the information received in the parameter $employee
+ */
+function _update_employee($nid, $employee){
+	$node = node_load($nid); 
+	$node-> title = $employee['employee_name'] != ""?$employee['employee_name']:"[No registrado]";
+	$node->employee_name[LANGUAGE_NONE][0]['value'] = $employee['employee_name'] != ""?$employee['employee_name']:"[No registrado]";
+	$node->employee_id[LANGUAGE_NONE][0]['value'] = $employee['id'];
+	$node->employee_age[LANGUAGE_NONE][0]['value'] = $employee['employee_age'];
+
+	$tid = _get_salaty_type($employee['employee_salary']);
+	$node->employee_salary_type[LANGUAGE_NONE][0]['tid'] = $tid;
+	node_save($node);
+}
+
+/**
+ * This method returns the type salary according to the value received in the parameter $salary
+ */
+function _get_salaty_type($salary ){
+
+	if($salary <= 1000){
+		$termArr = taxonomy_get_term_by_name("Salario bajo");
+		$tid = array_pop($termArr)->tid;
+	}
+	elseif ($salary > 1000 && $salary <= 4000) {
+		$termArr = taxonomy_get_term_by_name("Salario medio");
+		$tid = array_pop($termArr)->tid;
+	}
+	elseif ($salary > 4000) {
+		$termArr = taxonomy_get_term_by_name("Salario alto");
+		$tid = array_pop($termArr)->tid;
+	}
+	return $tid;
+}
+
+/**
+ * This method deletes all modules of type 'empleados'
+ */
+function _delete_all_employees() {
+  $results = db_select('node', 'n')
+              ->fields('n', array('nid'))
+              ->condition('type', array('empleados'), 'IN')
+              ->execute();
+
+  foreach ($results as $result) {
+    $nids[] = $result->nid;
+  }
+
+  if (!empty($nids)) {
+    node_delete_multiple($nids);
+    drupal_set_message(t('Deleted %count nodes.', array('%count' => count($nids))));
+  }
+}
+

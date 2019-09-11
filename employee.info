@@ -1,0 +1,7 @@
+name = Employee module
+description = A custom por employees management.
+package = Custom Modules
+core = 7.x
+version = 7.x-1.0
+
+dependencies[] = views:views

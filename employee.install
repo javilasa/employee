@@ -1,0 +1,248 @@
+<?php
+
+/**
+ * Implements hook_node_info().
+ */
+function employee_node_info() {
+  return array(
+    'mymod_content' => array(
+      'name' => t('My Mod'),
+      'base' => 'mymod_content',
+      'description' => t('A Description'),
+    )
+  );
+}
+
+/**
+ * Implements hook_install().
+ */
+function employee_install() {
+
+  //Creating taxonomy "salary types"
+  _create_taxonomy_salary_types();
+
+  //Creating content type Empleados
+  _create_content_type_empleados();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function employee_uninstall() {
+
+  //Removing Taxonomy term
+  $vocab = taxonomy_vocabulary_machine_name_load('salary_type_employee_vocab');
+  if($vocab !== false){
+    taxonomy_vocabulary_delete($vocab->vid);
+  }
+
+  //Removing nodes
+  $results = db_select('node', 'n')
+              ->fields('n', array('nid'))
+              ->condition('type', array('empleados'), 'IN')
+              ->execute();
+
+  foreach ($results as $result) {
+    $nids[] = $result->nid;
+  }
+
+  if (!empty($nids)) {
+    node_delete_multiple($nids);
+  }
+  
+  //Removing fields and instances
+  $fields = _get_employees_fields();
+  $instances  = _get_employees_instances();
+
+  foreach($instances as $field_name => $instance){
+    if (field_info_field($field_name)) {
+      field_delete_field($field_name);
+      field_delete_instance($instance);
+    }
+  }
+
+  //Removing view
+  $files = file_scan_directory(drupal_get_path('module', 'employee') . '/views', '/.*\.inc$/');
+
+  // Add view to list of views
+  foreach ($files as $filepath => $file) {
+    require $filepath;
+    if (isset($view)) {
+      views_delete_view($view);
+    }
+  }
+
+  node_type_delete('empleados');
+  variable_del('node_preview_empleados');
+  node_types_rebuild();
+  menu_rebuild();
+}
+
+
+/**
+ * This method creates a vocabuary and 3 terms
+ */
+function _create_taxonomy_salary_types(){
+  //Creating Salary types taxonomy
+  $new_vocab = (object) array(
+    'name' => 'Salary types',
+    'description' => 'This vocabulary contains the salary types for employees',
+    'machine_name' => 'salary_type_employee_vocab',
+  );
+  taxonomy_vocabulary_save($new_vocab);
+
+  $vocab = taxonomy_vocabulary_machine_name_load('salary_type_employee_vocab');
+ 
+  $terms_values =  array("Salario bajo", "Salario medio", "Salario alto");
+  foreach($terms_values as $term){
+    $term_info = (object) array(
+     'name' => $term,
+     'description' => 'This is term 1',
+     'vid' => $vocab->vid,
+    );
+
+    taxonomy_term_save($term_info);
+  }
+}
+
+/**
+ * This function creates the content type 'empleados'
+ */
+function _create_content_type_empleados(){
+	$node_employee = array(
+    'type' => 'empleados',
+    'name' => 'Empleados',
+    'base' => 'node_content',
+    'description' => 'This content type contains the employees information.',
+  );
+  $content_type = node_type_set_defaults($node_employee);
+  node_add_body_field($content_type);
+// Check if we create content type or update.
+  $status = node_type_save($content_type);
+// Replacement rule for the messages.
+  
+  if ($status == SAVED_UPDATED) { // update case
+    watchdog('Employee::installation','The content type Empleado has been updated.');
+  } 
+  elseif ($status == SAVED_NEW) { // create case
+    watchdog('Employee::installation','The content type Empleado has been created.');
+  }
+
+  /*Creating the fields and instances*/
+
+  $fields = _get_employees_fields();
+  $instances = _get_employees_instances();
+
+  foreach($fields as $field_name => $field_data){
+    if (!field_info_field($field_name)) {
+      field_create_field($field_data);
+      field_create_instance($instances[$field_name]);
+    }
+  }
+
+
+}
+
+/**
+ * This function returns the fields information of content type 'empleados'
+ */
+function _get_employees_fields(){
+
+  $fields = array();
+
+  $fields['employee_name'] = array(
+    'field_name' => 'employee_name',
+    'cardinality' => 1,
+    'type' => 'text',
+  );
+ 
+  $fields['employee_id'] = array(
+    'field_name' => 'employee_id',
+    'cardinality' => 1,
+    'type' => 'text',
+  );
+  
+  $fields['employee_age'] = array(
+    'field_name' => 'employee_age',
+    'cardinality' => 1,
+    'type' => 'number_integer',
+  );
+  
+  $fields['employee_salary_type'] = array(
+    'settings' => array(
+      'allowed_values' => array(
+        0 => array(
+          'vocabulary' => 'salary_type_employee_vocab',
+          'parent' => '0',
+        ),
+      ),
+    ),
+    'field_name' => 'employee_salary_type',
+    'type' => 'taxonomy_term_reference',
+    'module' => 'taxonomy',
+    'active' => '1',
+    'cardinality' => '1',    
+  );
+  
+  return $fields;
+
+}
+
+/**
+ * This function returns the instance information of content type 'empleados'
+ */
+function _get_employees_instances(){
+
+  $instances = array();
+
+  $instances['employee_name'] = array(
+    'field_name' => 'employee_name',
+    'label' => 'Nombre Empleado',
+    'bundle' => 'empleados',
+    'entity_type' => 'node',
+    'widget' => array(
+      'type' => 'text_textfield',
+    ),
+  );
+  
+
+  $instances['employee_id'] = array(
+    'field_name' => 'employee_id',
+    'label' => 'ID Empleado',
+    'bundle' => 'empleados',
+    'entity_type' => 'node',
+    'widget' => array(
+      'type' => 'text_textfield',
+    ),
+  );
+  
+
+  $instances['employee_age'] = array(
+    'field_name' => 'employee_age',
+    'label' => 'Edad Empleado',
+    'bundle' => 'empleados',
+    'entity_type' => 'node',
+    'widget' => array(
+      'type' => 'text_textfield',
+    ),
+  );
+  
+
+  $instances['employee_salary_type'] = array(
+    'label' => 'Tipo de Salario',
+    'widget' => 
+    array(
+      'weight' => 3,
+      'type' => 'options_select',
+      'module' => 'options',
+      'active' => 1,
+    ),
+    'field_name' => 'employee_salary_type',
+    'entity_type' => 'node',
+    'bundle' => 'empleados',
+  );
+
+  return $instances;
+
+}
+
