@@ -3,6 +3,8 @@ This module creates the next configuration page
 admin/config/system/employees-import
 
 In this page you can configure the URL for getting the employee data in format JSON
+URL with the employee data:
+http://dummy.restapiexample.com/api/v1/employees
 
 /***IMPORTING DATA***/
 The import process was configured in the cron of drupal
