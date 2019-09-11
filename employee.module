@@ -63,14 +63,14 @@ function employee_views_default_views() {
 
 
 /**
- * This method is the call back to page /delete and it starts the employee nodes deletion
+ * This function is the call back to page /delete and it starts the employee nodes deletion
  */
 function import_delete(){
 	_delete_all_employees();
 }
 
 /**
- * This method is the call back to admin page admin/config/system/employees-import and save the API url
+ * This function is the call back to admin page admin/config/system/employees-import and save the API url
  */
 function employee_import_form($form, &$form_state){
 
@@ -90,7 +90,7 @@ function employee_import_form($form, &$form_state){
 }
 
 /**
- * This method imports employees from API URL
+ * This function imports employees from API URL
  */
 function _import_employees(){
 	$url = variable_get("import_url");
@@ -119,7 +119,7 @@ function _import_employees(){
 }
 
 /**
- * This method search a employee with employee_id equals to parametter $id
+ * This function search a employee with employee_id equals to parametter $id
  */
 function _search_employee($id){
 
@@ -136,7 +136,7 @@ function _search_employee($id){
 }
 
 /**
- * This method add a node employee with the information received in the parameter $employee
+ * This function add a node employee with the information received in the parameter $employee
  */
 function _add_employee($employee){
 	$node = new stdClass();
@@ -153,7 +153,7 @@ function _add_employee($employee){
 }
 
 /**
- * This method updates a node employee with the information received in the parameter $employee
+ * This function updates a node employee with the information received in the parameter $employee
  */
 function _update_employee($nid, $employee){
 	$node = node_load($nid); 
@@ -168,7 +168,7 @@ function _update_employee($nid, $employee){
 }
 
 /**
- * This method returns the type salary according to the value received in the parameter $salary
+ * This function returns the type salary according to the value received in the parameter $salary
  */
 function _get_salaty_type($salary ){
 
@@ -188,7 +188,7 @@ function _get_salaty_type($salary ){
 }
 
 /**
- * This method deletes all modules of type 'empleados'
+ * This function deletes all modules of type 'empleados'
  */
 function _delete_all_employees() {
   $results = db_select('node', 'n')

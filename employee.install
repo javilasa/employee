@@ -80,7 +80,7 @@ function employee_uninstall() {
 
 
 /**
- * This method creates a vocabuary and 3 terms
+ * This function creates a vocabuary and 3 terms
  */
 function _create_taxonomy_salary_types(){
   //Creating Salary types taxonomy
