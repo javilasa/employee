@@ -13,7 +13,7 @@ function employee_menu(){
 	); 
 
 	$items['delete'] = array(
-    'title' => t('Import progress'),
+    'title' => t('Barrando Empleados'),
     'page callback' => 'import_delete',
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
