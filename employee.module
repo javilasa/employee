@@ -105,9 +105,9 @@ function _import_employees(){
 				$employee_id = $response_data['id'];
 				$employee_data = _search_employee($employee_id);
 				if(count($employee_data)>0){
-					$nid = $employee_data['node'][1] -> nid;
-					_update_employee($nid, $response_data);
-
+					foreach($employee_data['node'] as $nid => $employee){
+						_update_employee($nid, $response_data);
+					}
 				}
 				else{
 					_add_employee($response_data);
@@ -156,6 +156,8 @@ function _add_employee($employee){
  * This function updates a node employee with the information received in the parameter $employee
  */
 function _update_employee($nid, $employee){
+	watchdog("_update_employee::nid", $nid);
+	watchdog("_update_employee::employe_data", print_r($employee,true));
 	$node = node_load($nid); 
 	$node-> title = $employee['employee_name'] != ""?$employee['employee_name']:"[No registrado]";
 	$node->employee_name[LANGUAGE_NONE][0]['value'] = $employee['employee_name'] != ""?$employee['employee_name']:"[No registrado]";
